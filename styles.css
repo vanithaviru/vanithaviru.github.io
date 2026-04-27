@@ -112,8 +112,10 @@ nav {
   display: flex;
   gap: 1.4rem;
   align-items: baseline;
-  margin-bottom: 1.8rem;
 }
+
+/* Home page nav gets bottom margin */
+.identity + nav { margin-bottom: 1.8rem; }
 
 nav a {
   font-family: var(--serif);
