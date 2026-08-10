@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BADM 211 Grade Calculator</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    max-width: 640px; margin: 0 auto; padding: 24px; color: #1a1a1a; background: #fff;
+  }
+  h1 { font-size: 1.5rem; color: #13294b; margin-bottom: 4px; }
+  p.sub { color: #555; margin-top: 0; font-size: 0.95rem; }
+  fieldset { border: 1px solid #ddd; border-radius: 8px; margin: 16px 0; padding: 16px; }
+  legend { font-weight: 600; color: #13294b; padding: 0 8px; }
+  .row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; gap: 12px; }
+  .row label { flex: 1; }
+  .row .max { color: #888; font-size: 0.85rem; margin-left: 6px; }
+  input[type="number"] {
+    width: 90px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; text-align: right;
+  }
+  input:focus { outline: 2px solid #e84a27; border-color: #e84a27; }
+  .quiz-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .quiz-row input { width: 70px; }
+  button {
+    background: #e84a27; color: #fff; border: none; padding: 12px 24px; font-size: 1rem;
+    border-radius: 6px; cursor: pointer; font-weight: 600; width: 100%;
+  }
+  button:hover { background: #d13e1f; }
+  #result {
+    margin-top: 20px; padding: 20px; border-radius: 8px; background: #f5f5f5;
+    border-left: 4px solid #13294b; display: none;
+  }
+  #result.show { display: block; }
+  .big { font-size: 2rem; font-weight: 700; color: #13294b; }
+  .grade { font-size: 2.5rem; font-weight: 700; color: #e84a27; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.9rem; }
+  td { padding: 4px 0; }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { font-size: 0.82rem; color: #777; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1>BADM 211 Grade Calculator</h1>
+  <p class="sub">Enter your points below. The quiz drop and worksheet cap are applied automatically.</p>
+
+  <fieldset>
+    <legend>Categories</legend>
+    <div class="row">
+      <label for="attendance">Attendance / Participation <span class="max">/ 30</span></label>
+      <input type="number" id="attendance" min="0" max="30" step="0.5" value="0">
+    </div>
+    <div class="row">
+      <label for="worksheets">Raw worksheet points <span class="max">up to 150</span></label>
+      <input type="number" id="worksheets" min="0" max="150" step="1" value="0">
+    </div>
+    <div class="row">
+      <label for="homework">Homework <span class="max">/ 180</span></label>
+      <input type="number" id="homework" min="0" max="180" step="1" value="0">
+    </div>
+    <div class="row">
+      <label for="projects">Projects <span class="max">/ 290</span></label>
+      <input type="number" id="projects" min="0" max="290" step="1" value="0">
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Quiz scores (100 each)</legend>
+    <div class="quiz-row">
+      <input type="number" id="q1" min="0" max="100" step="1" placeholder="Q1">
+      <input type="number" id="q2" min="0" max="100" step="1" placeholder="Q2">
+      <input type="number" id="q3" min="0" max="100" step="1" placeholder="Q3">
+      <input type="number" id="q4" min="0" max="100" step="1" placeholder="Q4">
+    </div>
+    <p class="note">Enter the quizzes you've taken. Your lowest is replaced by the average of the rest.</p>
+  </fieldset>
+
+  <button onclick="calculate()">Calculate my grade</button>
+
+  <div id="result">
+    <div>Total points: <span class="big" id="total"></span> <span style="color:#888;">/ 1000</span></div>
+    <div style="margin-top:8px;">Percentage: <span class="big" id="percent"></span></div>
+    <div style="margin-top:8px;">Letter grade: <span class="grade" id="letter"></span></div>
+    <table id="breakdown"></table>
+  </div>
+
+<script>
+function letterGrade(total) {
+  if (total >= 970) return "A+";
+  if (total >= 930) return "A";
+  if (total >= 900) return "A-";
+  if (total >= 870) return "B+";
+  if (total >= 830) return "B";
+  if (total >= 800) return "B-";
+  if (total >= 770) return "C+";
+  if (total >= 730) return "C";
+  if (total >= 700) return "C-";
+  if (total >= 670) return "D+";
+  if (total >= 630) return "D";
+  if (total >= 600) return "D-";
+  return "F";
+}
+
+function num(id) {
+  var v = parseFloat(document.getElementById(id).value);
+  return isNaN(v) ? 0 : v;
+}
+
+function calculate() {
+  var attendance = num("attendance");
+  var rawWs = num("worksheets");
+  var homework = num("homework");
+  var projects = num("projects");
+
+  // Worksheets: cap category at 100, overflow up to 20 becomes extra credit
+  var wsCategory = Math.min(rawWs, 100);
+  var extraCredit = Math.min(Math.max(rawWs - 100, 0), 20);
+
+  // Quizzes: gather entered scores, drop lowest by replacing it with the
+  // average of the others. With N scores that equals (sum of top N-1) * N/(N-1).
+  var quizzes = ["q1","q2","q3","q4"]
+    .map(function(id){ return document.getElementById(id).value; })
+    .filter(function(v){ return v !== "" && !isNaN(parseFloat(v)); })
+    .map(parseFloat);
+
+  var quizPoints = 0;
+  if (quizzes.length >= 2) {
+    quizzes.sort(function(a,b){ return b-a; }); // high to low
+    var topSum = 0;
+    for (var i = 0; i < quizzes.length - 1; i++) topSum += quizzes[i];
+    var avg = topSum / (quizzes.length - 1);
+    quizPoints = topSum + avg;
+  } else if (quizzes.length === 1) {
+    quizPoints = quizzes[0]; // nothing to drop yet
+  }
+
+  var total = attendance + wsCategory + homework + projects + quizPoints + extraCredit;
+  var percent = total / 10;
+  var letter = letterGrade(total);
+
+  document.getElementById("total").textContent = Math.round(total * 100) / 100;
+  document.getElementById("percent").textContent = percent.toFixed(1) + "%";
+  document.getElementById("letter").textContent = letter;
+
+  document.getElementById("breakdown").innerHTML =
+    "<tr><td>Attendance</td><td>" + attendance + "</td></tr>" +
+    "<tr><td>Worksheets (capped at 100)</td><td>" + wsCategory + "</td></tr>" +
+    "<tr><td>Homework</td><td>" + homework + "</td></tr>" +
+    "<tr><td>Projects</td><td>" + projects + "</td></tr>" +
+    "<tr><td>Quizzes (lowest dropped)</td><td>" + (Math.round(quizPoints*100)/100) + "</td></tr>" +
+    "<tr><td>Extra credit</td><td>" + extraCredit + "</td></tr>";
+
+  document.getElementById("result").classList.add("show");
+}
+</script>
+</body>
+</html>
